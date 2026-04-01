@@ -1,26 +1,28 @@
 import mongoose from 'mongoose';
 import { getConnection } from '../db.js';
 
-interface GetUserLedgerParams {
+interface GetUserTradingsParams {
   userId: string;
-  operation?: string;
-  currency?: string;
+  action?: string;
+  status?: string;
+  blockchain?: string;
   startDate?: string;
   endDate?: string;
   limit?: number;
   skip?: number;
 }
 
-export async function getUserLedger(params: GetUserLedgerParams) {
+export async function getUserTradings(params: GetUserTradingsParams) {
   const db = (await getConnection()).db!;
-  const ledgers = db.collection('ledgers');
+  const tradings = db.collection('tradings');
 
   const filter: Record<string, any> = {
-    userId: new mongoose.Types.ObjectId(params.userId),
+    requestedUser: new mongoose.Types.ObjectId(params.userId),
   };
 
-  if (params.operation) filter.operation = params.operation;
-  if (params.currency) filter.currency = params.currency;
+  if (params.action) filter.action = params.action;
+  if (params.status) filter.status = params.status;
+  if (params.blockchain) filter.blockchain = params.blockchain;
 
   if (params.startDate || params.endDate) {
     filter.createdAt = {};
@@ -31,14 +33,14 @@ export async function getUserLedger(params: GetUserLedgerParams) {
   const limit = Math.min(params.limit || 50, 200);
   const skip = params.skip || 0;
 
-  const results = await ledgers
+  const results = await tradings
     .find(filter)
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
     .toArray();
 
-  const total = await ledgers.countDocuments(filter);
+  const total = await tradings.countDocuments(filter);
 
-  return { ledger: results, total, limit, skip };
+  return { tradings: results, total, limit, skip };
 }

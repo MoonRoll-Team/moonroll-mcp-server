@@ -12,9 +12,11 @@
     "@aws-sdk/client-cloudwatch-logs": "^3.750.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "dotenv": "^16.4.7",
+    "express": "^4.21.0",
     "mongoose": "^8.18.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
     "@types/node": "^22.15.3",
     "tsx": "^4.19.4",
     "typescript": "^5.9.2"

@@ -13,7 +13,7 @@ function escapeRegex(str: string): string {
 }
 
 export async function findUser(query: string) {
-  const db = getConnection().db!;
+  const db = (await getConnection()).db!;
   const users = db.collection('users');
   const userbalances = db.collection('userbalances');
 

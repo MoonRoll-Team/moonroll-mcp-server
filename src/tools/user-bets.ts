@@ -14,7 +14,7 @@ interface GetUserBetsParams {
 }
 
 export async function getUserBets(params: GetUserBetsParams) {
-  const db = getConnection().db!;
+  const db = (await getConnection()).db!;
   const bets = db.collection('bets');
 
   const filter: Record<string, any> = {

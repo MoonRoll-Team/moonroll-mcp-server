@@ -69,7 +69,7 @@ export async function runQuery(params: RunQueryParams) {
     }
   }
 
-  const db = getConnection().db!;
+  const db = (await getConnection()).db!;
 
   // Check collection exists
   const collections = await db

@@ -10,7 +10,7 @@ interface GetUserSessionsParams {
 }
 
 export async function getUserSessions(params: GetUserSessionsParams) {
-  const db = getConnection().db!;
+  const db = (await getConnection()).db!;
   const collectionName =
     params.type === 'ip' ? 'iphistories' : 'loginhistories';
   const collection = db.collection(collectionName);
