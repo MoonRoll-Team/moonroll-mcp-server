@@ -1,0 +1,44 @@
+import mongoose from 'mongoose';
+import { getConnection } from '../db.js';
+
+interface GetUserLedgerParams {
+  userId: string;
+  operation?: string;
+  currency?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  skip?: number;
+}
+
+export async function getUserLedger(params: GetUserLedgerParams) {
+  const db = getConnection().db!;
+  const ledgers = db.collection('ledgers');
+
+  const filter: Record<string, any> = {
+    userId: new mongoose.Types.ObjectId(params.userId),
+  };
+
+  if (params.operation) filter.operation = params.operation;
+  if (params.currency) filter.currency = params.currency;
+
+  if (params.startDate || params.endDate) {
+    filter.createdAt = {};
+    if (params.startDate) filter.createdAt.$gte = new Date(params.startDate);
+    if (params.endDate) filter.createdAt.$lte = new Date(params.endDate);
+  }
+
+  const limit = Math.min(params.limit || 50, 200);
+  const skip = params.skip || 0;
+
+  const results = await ledgers
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .toArray();
+
+  const total = await ledgers.countDocuments(filter);
+
+  return { ledger: results, total, limit, skip };
+}

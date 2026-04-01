@@ -1,0 +1,22 @@
+{
+  "name": "moonroll-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for read-only access to Moonroll database and CloudWatch logs",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch-logs": "^3.750.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.2"
+  }
+}
