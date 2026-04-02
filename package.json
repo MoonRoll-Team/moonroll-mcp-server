@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "dev:http": "MCP_PORT=3456 tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

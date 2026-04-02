@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import dotenv from 'dotenv';
@@ -244,33 +245,44 @@ server.tool(
   }
 );
 
-// --- Start HTTP server ---
+// --- Start server ---
 async function main() {
-  const app = express();
-  const port = parseInt(process.env.MCP_PORT || '3456', 10);
+  const useHttp = process.env.MCP_PORT || process.argv.includes('--http');
 
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
-  });
+  if (useHttp) {
+    // HTTP mode — for deployment or `npm run dev:http`
+    const app = express();
+    app.use(express.json());
+    const port = parseInt(process.env.MCP_PORT || '3456', 10);
 
-  app.post('/mcp', async (req, res) => {
-    await transport.handleRequest(req, res, req.body);
-  });
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
 
-  app.get('/mcp', async (req, res) => {
-    await transport.handleRequest(req, res);
-  });
+    app.post('/mcp', async (req, res) => {
+      await transport.handleRequest(req, res, req.body);
+    });
 
-  app.delete('/mcp', async (req, res) => {
-    await transport.handleRequest(req, res);
-  });
+    app.get('/mcp', async (req, res) => {
+      await transport.handleRequest(req, res);
+    });
 
-  await server.connect(transport);
+    app.delete('/mcp', async (req, res) => {
+      await transport.handleRequest(req, res);
+    });
 
-  app.listen(port, () => {
-    console.log(`[moonroll-mcp] Server running on http://localhost:${port}/mcp`);
-    console.log(`[moonroll-mcp] 13 tools registered (DB connects on first tool call)`);
-  });
+    await server.connect(transport);
+
+    app.listen(port, () => {
+      console.log(`[moonroll-mcp] HTTP server on http://localhost:${port}/mcp`);
+      console.log(`[moonroll-mcp] 13 tools registered`);
+    });
+  } else {
+    // stdio mode — for local Claude Code via .mcp.json
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('[moonroll-mcp] stdio server started, 13 tools registered');
+  }
 }
 
 main().catch((err) => {
