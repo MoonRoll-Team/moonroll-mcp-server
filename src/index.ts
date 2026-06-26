@@ -4,6 +4,8 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getConnection } from './db.js';
 import { findUser } from './tools/find-user.js';
 import { getUserBets } from './tools/user-bets.js';
@@ -15,10 +17,12 @@ import { getUserTradings } from './tools/user-tradings.js';
 import { getUserWithdrawals } from './tools/user-withdrawals.js';
 import { getUserBonuses } from './tools/user-bonuses.js';
 import { getUserSportsBets } from './tools/user-sports-bets.js';
+import { getUserSportsActivity } from './tools/user-sports-activity.js';
 import { getUserDailyStats } from './tools/user-daily-stats.js';
 import { getUserReferrals } from './tools/user-referrals.js';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const server = new McpServer({
   name: 'moonroll-debug',
@@ -180,15 +184,32 @@ server.tool(
 // --- Tool: get_user_sports_bets ---
 server.tool(
   'get_user_sports_bets',
-  'Get sports betting (Betby) transactions for a user. Returns transactions with linked betslips showing event details, odds, and outcomes.',
+  'Get current BetConstruct sports betting transactions for a user. Resolves ObjectId/publicId/name/email to the sports publicId and returns related transactions by betId.',
   {
-    userId: z.string().describe('User ObjectId (matched against player_id_moonroll)'),
-    statusBetslip: z.string().optional().describe('Filter by betslip status: open, won, lost, canceled, refund, cashed out, half-won, half-lost'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, or email'),
+    operation: z.string().optional().describe('Filter by BetConstruct operation: bet_placed, bet_resulted, or rollback'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
     endDate: z.string().optional().describe('End date (ISO format)'),
-    limit: z.number().optional().describe('Number of results (default 50, max 200)'),
+    limit: z.number().optional().describe('Number of transactions to return (default 50, max 200)'),
+    skip: z.number().optional().describe('Pagination offset for transactions (default 0)'),
   },
   toolHandler(getUserSportsBets)
+);
+
+// --- Tool: get_user_sports_activity ---
+server.tool(
+  'get_user_sports_activity',
+  'Read sports betting activity for a user from the current BetConstruct records. Returns transactions, related records grouped by betId, counts, and summaries.',
+  {
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, or email'),
+    include: z.string().optional().describe('Comma-separated sections: summary,transactions,bets. Default includes all.'),
+    operation: z.string().optional().describe('Filter by BetConstruct operation: bet_placed, bet_resulted, or rollback'),
+    startDate: z.string().optional().describe('Start date (ISO format)'),
+    endDate: z.string().optional().describe('End date (ISO format)'),
+    limit: z.number().optional().describe('Number of transactions to return (default 50, max 200)'),
+    skip: z.number().optional().describe('Pagination offset for transactions (default 0)'),
+  },
+  toolHandler(getUserSportsActivity)
 );
 
 // --- Tool: get_user_daily_stats ---
@@ -275,13 +296,13 @@ async function main() {
 
     app.listen(port, () => {
       console.log(`[moonroll-mcp] HTTP server on http://localhost:${port}/mcp`);
-      console.log(`[moonroll-mcp] 13 tools registered`);
+      console.log(`[moonroll-mcp] 14 tools registered`);
     });
   } else {
     // stdio mode — for local Claude Code via .mcp.json
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('[moonroll-mcp] stdio server started, 13 tools registered');
+    console.error('[moonroll-mcp] stdio server started, 14 tools registered');
   }
 }
 
