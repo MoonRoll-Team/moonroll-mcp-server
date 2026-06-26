@@ -22,10 +22,18 @@ import { getUserDailyStats } from './tools/user-daily-stats.js';
 import { getUserReferrals } from './tools/user-referrals.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Select which environment this server instance targets.
+// MOONROLL_ENV=dev  -> loads .env.dev  and registers as "moonroll-debug-dev"
+// anything else     -> loads .env      and registers as "moonroll-debug" (prod, default)
+const targetEnv = (process.env.MOONROLL_ENV || 'prod').toLowerCase() === 'dev' ? 'dev' : 'prod';
+const envFile = targetEnv === 'dev' ? '../.env.dev' : '../.env';
+dotenv.config({ path: path.resolve(__dirname, envFile) });
+
+const serverName = targetEnv === 'dev' ? 'moonroll-debug-dev' : 'moonroll-debug';
 
 const server = new McpServer({
-  name: 'moonroll-debug',
+  name: serverName,
   version: '1.0.0',
 });
 
@@ -296,13 +304,13 @@ async function main() {
 
     app.listen(port, () => {
       console.log(`[moonroll-mcp] HTTP server on http://localhost:${port}/mcp`);
-      console.log(`[moonroll-mcp] 14 tools registered`);
+      console.log(`[moonroll-mcp] target=${targetEnv} name=${serverName}, 14 tools registered`);
     });
   } else {
     // stdio mode — for local Claude Code via .mcp.json
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('[moonroll-mcp] stdio server started, 14 tools registered');
+    console.error(`[moonroll-mcp] stdio server started (target=${targetEnv} name=${serverName}), 14 tools registered`);
   }
 }
 
