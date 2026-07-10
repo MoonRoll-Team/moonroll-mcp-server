@@ -12,7 +12,20 @@ export async function getUserReferrals(params: GetUserReferralsParams) {
   const userOid = new mongoose.Types.ObjectId(params.userId);
   const limit = Math.min(params.limit || 50, 200);
 
-  // Get user's referral data
+  // Referral data lives on `userreferrals` after the DDD user split; fall
+  // back to the legacy embedded users copy for databases that predate the
+  // split (the frozen copy is $unset once the split has run).
+  const referralRow = await db.collection('userreferrals').findOne(
+    { userId: userOid },
+    {
+      projection: {
+        referral: 1,
+        referralCode: 1,
+        referrerId: 1,
+      },
+    }
+  );
+
   const user = await db.collection('users').findOne(
     { _id: userOid },
     {
@@ -24,6 +37,8 @@ export async function getUserReferrals(params: GetUserReferralsParams) {
       },
     }
   );
+
+  const referralSource = referralRow ?? user;
 
   // Get referral deposits (deposits made by users this person referred)
   const referralDeposits = await db
@@ -42,15 +57,15 @@ export async function getUserReferrals(params: GetUserReferralsParams) {
     .toArray();
 
   return {
-    referralInfo: user ? {
-      code: user.referral?.code,
-      message: user.referral?.message,
-      availableGems: user.referral?.availableGems,
-      generatedRevenue: user.referral?.generatedRevenue,
-      totalDepositedGems: user.referral?.totalDepositedGems,
-      referredUserCount: user.referral?.users?.length || 0,
-      referredBy: user.referralCode || null,
-      referrerId: user.referrerId || null,
+    referralInfo: referralSource ? {
+      code: referralSource.referral?.code,
+      message: referralSource.referral?.message,
+      availableGems: referralSource.referral?.availableGems,
+      generatedRevenue: referralSource.referral?.generatedRevenue,
+      totalDepositedGems: referralSource.referral?.totalDepositedGems,
+      referredUserCount: referralSource.referral?.users?.length || 0,
+      referredBy: referralSource.referralCode || null,
+      referrerId: referralSource.referrerId || null,
     } : null,
     referralDeposits,
     claimHistory,
