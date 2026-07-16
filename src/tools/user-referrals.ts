@@ -60,7 +60,12 @@ export async function getUserReferrals(params: GetUserReferralsParams) {
     referralInfo: referralSource ? {
       code: referralSource.referral?.code,
       message: referralSource.referral?.message,
-      availableGems: referralSource.referral?.availableGems,
+      // Post-micros-migration DBs store availableMicros (1e-6 USD); older DBs
+      // (prod) still store availableGems in cents. Both report cents here.
+      availableGems:
+        referralSource.referral?.availableMicros != null
+          ? referralSource.referral.availableMicros / 10_000
+          : referralSource.referral?.availableGems,
       generatedRevenue: referralSource.referral?.generatedRevenue,
       totalDepositedGems: referralSource.referral?.totalDepositedGems,
       referredUserCount: referralSource.referral?.users?.length || 0,
