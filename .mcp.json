@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "moonroll": {
+      "command": "npx",
+      "args": ["tsx", "src/index.ts"],
+      "cwd": "/Users/gregoire/Documents/moonroll-mcp-server",
+      "env": {}
+    }
+  }
+}

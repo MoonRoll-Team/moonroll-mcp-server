@@ -102,19 +102,34 @@ export async function searchLogs(params: SearchLogsParams) {
   const limit = Math.min(params.limit || 100, 500);
 
   const client = getClient();
-  const command = new FilterLogEventsCommand({
-    logGroupName,
-    filterPattern,
-    startTime: start,
-    endTime: end,
-    limit,
-  });
 
-  const result = await client.send(command);
+  // FilterLogEvents only scans a slice of the time range per call; without following
+  // nextToken a sparse match can come back empty even though events exist later in the
+  // range. Walk pages until we have enough matches or the range is fully scanned.
+  const MAX_PAGES = 40;
+  const events: { message?: string; timestamp?: number }[] = [];
+  let nextToken: string | undefined;
+  let pagesScanned = 0;
 
-  const logs = (result.events || []).map((event) =>
-    parseLogMessage(event.message || '', event.timestamp || 0)
-  );
+  do {
+    const result: { events?: typeof events; nextToken?: string } = await client.send(
+      new FilterLogEventsCommand({
+        logGroupName,
+        filterPattern,
+        startTime: start,
+        endTime: end,
+        limit,
+        nextToken,
+      })
+    );
+    events.push(...(result.events || []));
+    nextToken = result.nextToken;
+    pagesScanned++;
+  } while (nextToken && events.length < limit && pagesScanned < MAX_PAGES);
+
+  const logs = events
+    .slice(0, limit)
+    .map((event) => parseLogMessage(event.message || '', event.timestamp || 0));
 
   // Filter by log levels
   const allowedLevels = (params.logLevels || 'error,warn,info')
@@ -129,6 +144,7 @@ export async function searchLogs(params: SearchLogsParams) {
     logs: filteredLogs,
     resolvedUser,
     total: filteredLogs.length,
-    hasMore: !!result.nextToken,
+    hasMore: !!nextToken,
+    pagesScanned,
   };
 }

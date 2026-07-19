@@ -19,13 +19,20 @@ export async function getConnection(): Promise<mongoose.Connection> {
   }
 
   connectingPromise = (async () => {
-    connection = mongoose.createConnection(url, {
-      maxPoolSize: 2,
-      serverSelectionTimeoutMS: 10000,
-    });
-    await connection.asPromise();
-    console.error('[moonroll-mcp] Connected to MongoDB');
-    return connection;
+    try {
+      connection = mongoose.createConnection(url, {
+        maxPoolSize: 2,
+        serverSelectionTimeoutMS: 10000,
+      });
+      await connection.asPromise();
+      console.error('[moonroll-mcp] Connected to MongoDB');
+      return connection;
+    } catch (err) {
+      // Reset so the next tool call retries instead of reusing the rejected promise forever.
+      connection = null;
+      connectingPromise = null;
+      throw err;
+    }
   })();
 
   return connectingPromise;
