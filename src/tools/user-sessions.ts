@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserSessionsParams {
   userId: string;
@@ -10,13 +11,16 @@ interface GetUserSessionsParams {
 }
 
 export async function getUserSessions(params: GetUserSessionsParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
   const collectionName =
     params.type === 'ip' ? 'iphistories' : 'loginhistories';
   const collection = db.collection(collectionName);
 
   const filter: Record<string, any> = {
-    userId: new mongoose.Types.ObjectId(params.userId),
+    userId: new mongoose.Types.ObjectId(resolved.userId),
   };
 
   if (params.startDate || params.endDate) {
@@ -33,5 +37,5 @@ export async function getUserSessions(params: GetUserSessionsParams) {
     .limit(limit)
     .toArray();
 
-  return { sessions: results, type: params.type || 'login', count: results.length };
+  return { resolvedUser: resolved, sessions: results, type: params.type || 'login', count: results.length };
 }

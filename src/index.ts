@@ -73,7 +73,7 @@ server.tool(
   'get_user_bets',
   'Retrieve a user\'s betting history with optional filters. Useful for investigating suspicious wins or unusual patterns.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     gameType: z.string().optional().describe('Filter by game type: dice, mines, plinko, slots, limbo, blackjack, lootbox, battle, jackpot, crash, etc.'),
     status: z.string().optional().describe('Filter by status: pending, completed, failed, cancelled, refunded'),
     currency: z.string().optional().describe('Filter by currency: gems or moonrollcoins'),
@@ -91,7 +91,7 @@ server.tool(
   'get_user_ledger',
   'Retrieve all balance-changing operations for a user (bets, deposits, withdrawals, bonuses). Shows balanceAfter for each entry — the most useful tool for tracing balance anomalies and exploits.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     operation: z.string().optional().describe('Filter by operation type: bet-place, bet-win, deposit, withdraw, bonus, tip, swap, etc.'),
     currency: z.string().optional().describe('Filter by currency: USD, MRC, etc.'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
@@ -107,7 +107,7 @@ server.tool(
   'get_user_sessions',
   'Retrieve login history or IP history for a user. Useful for multi-accounting detection and security investigations.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     type: z.enum(['login', 'ip']).optional().describe('Type of history: "login" for login events (default), "ip" for IP address history'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
     endDate: z.string().optional().describe('End date (ISO format)'),
@@ -152,7 +152,7 @@ server.tool(
   'get_user_tradings',
   'Retrieve deposit/withdrawal trading records for a user. Shows blockchain transactions with status, amounts, and signatures.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     action: z.string().optional().describe('Filter by action: DEPOSIT_SOL, DEPOSIT_ETH, DEPOSIT_BTC, DEPOSIT_LTC, DEPOSIT_MRC, DEPOSIT_SPL, WITHDRAW_SOL, WITHDRAW_ETH, WITHDRAW_BTC, WITHDRAW_LTC, etc.'),
     status: z.string().optional().describe('Filter by status: success, failed, pending'),
     blockchain: z.string().optional().describe('Filter by blockchain'),
@@ -169,7 +169,7 @@ server.tool(
   'get_user_withdrawals',
   'Get pending and failed withdrawals for a user. Returns both pending requests and failed withdrawal records with failure reasons.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     status: z.string().optional().describe('Filter pending withdrawals by status'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
     endDate: z.string().optional().describe('End date (ISO format)'),
@@ -183,7 +183,7 @@ server.tool(
   'get_user_bonuses',
   'Get bonus history and current eligibility for a user. Shows claimed bonuses and active bonus templates the user can use.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     type: z.string().optional().describe('Filter by bonus type'),
     currency: z.string().optional().describe('Filter by currency: USD, MRC'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
@@ -229,7 +229,7 @@ server.tool(
   'get_user_daily_stats',
   'Get daily P&L breakdown for a user. Shows wagered, won, income, deposits, and withdrawals per day per currency per game type.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     startDate: z.string().optional().describe('Start date (ISO format)'),
     endDate: z.string().optional().describe('End date (ISO format)'),
     limit: z.number().optional().describe('Number of days (default 30, max 90)'),
@@ -242,7 +242,7 @@ server.tool(
   'get_user_referrals',
   'Get referral info for a user — referral code, revenue generated, referred users, referral deposits, and claim history.',
   {
-    userId: z.string().describe('User ObjectId'),
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
   },
   toolHandler(getUserReferrals)

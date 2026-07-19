@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserBonusesParams {
   userId: string;
@@ -11,9 +12,12 @@ interface GetUserBonusesParams {
 }
 
 export async function getUserBonuses(params: GetUserBonusesParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
 
-  const userOid = new mongoose.Types.ObjectId(params.userId);
+  const userOid = new mongoose.Types.ObjectId(resolved.userId);
   const limit = Math.min(params.limit || 50, 200);
 
   // Bonus history
@@ -39,5 +43,5 @@ export async function getUserBonuses(params: GetUserBonusesParams) {
     .find({ userId: userOid })
     .toArray();
 
-  return { bonuses, eligibilities, bonusCount: bonuses.length };
+  return { resolvedUser: resolved, bonuses, eligibilities, bonusCount: bonuses.length };
 }

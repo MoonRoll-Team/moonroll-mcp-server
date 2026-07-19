@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection, COUNT_CAP, capCount } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserLedgerParams {
   userId: string;
@@ -12,11 +13,14 @@ interface GetUserLedgerParams {
 }
 
 export async function getUserLedger(params: GetUserLedgerParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
   const ledgers = db.collection('ledgers');
 
   const filter: Record<string, any> = {
-    userId: new mongoose.Types.ObjectId(params.userId),
+    userId: new mongoose.Types.ObjectId(resolved.userId),
   };
 
   if (params.operation) filter.operation = params.operation;
@@ -40,5 +44,5 @@ export async function getUserLedger(params: GetUserLedgerParams) {
 
   const total = await ledgers.countDocuments(filter, { limit: COUNT_CAP });
 
-  return { ledger: results, ...capCount(total), limit, skip };
+  return { resolvedUser: resolved, ledger: results, ...capCount(total), limit, skip };
 }

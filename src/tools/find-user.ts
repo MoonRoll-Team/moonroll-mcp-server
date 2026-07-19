@@ -83,14 +83,16 @@ export async function findUser(query: string) {
   };
 }
 
-// Helper used by other tools to resolve a search string to an ObjectId
+// Helper used by other tools to resolve a search string (ObjectId, publicId,
+// username, email, wallet address, or Discord ID) to the user's identifiers.
 export async function resolveUserId(
   query: string
-): Promise<{ userId: string; userName: string } | null> {
+): Promise<{ userId: string; userName: string; publicId: string | null } | null> {
   const result = await findUser(query);
   if (!result.found || !result.user) return null;
   return {
     userId: String(result.user._id),
     userName: (result.user as any).name || '',
+    publicId: (result.user as any).publicId || null,
   };
 }

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserDailyStatsParams {
   userId: string;
@@ -9,10 +10,13 @@ interface GetUserDailyStatsParams {
 }
 
 export async function getUserDailyStats(params: GetUserDailyStatsParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
 
   const filter: Record<string, any> = {
-    userId: new mongoose.Types.ObjectId(params.userId),
+    userId: new mongoose.Types.ObjectId(resolved.userId),
   };
 
   if (params.startDate || params.endDate) {
@@ -30,5 +34,5 @@ export async function getUserDailyStats(params: GetUserDailyStatsParams) {
     .limit(limit)
     .toArray();
 
-  return { stats, count: stats.length };
+  return { resolvedUser: resolved, stats, count: stats.length };
 }

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection, COUNT_CAP, capCount } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserTradingsParams {
   userId: string;
@@ -13,11 +14,14 @@ interface GetUserTradingsParams {
 }
 
 export async function getUserTradings(params: GetUserTradingsParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
   const tradings = db.collection('tradings');
 
   const filter: Record<string, any> = {
-    requestedUser: new mongoose.Types.ObjectId(params.userId),
+    requestedUser: new mongoose.Types.ObjectId(resolved.userId),
   };
 
   if (params.action) filter.action = params.action;
@@ -42,5 +46,5 @@ export async function getUserTradings(params: GetUserTradingsParams) {
 
   const total = await tradings.countDocuments(filter, { limit: COUNT_CAP });
 
-  return { tradings: results, ...capCount(total), limit, skip };
+  return { resolvedUser: resolved, tradings: results, ...capCount(total), limit, skip };
 }

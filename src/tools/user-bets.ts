@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getConnection, COUNT_CAP, capCount } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserBetsParams {
   userId: string;
@@ -14,11 +15,14 @@ interface GetUserBetsParams {
 }
 
 export async function getUserBets(params: GetUserBetsParams) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) return { error: `No user found matching "${params.userId}"` };
+
   const db = (await getConnection()).db!;
   const bets = db.collection('bets');
 
   const filter: Record<string, any> = {
-    userId: new mongoose.Types.ObjectId(params.userId),
+    userId: new mongoose.Types.ObjectId(resolved.userId),
   };
 
   if (params.gameType) filter.gameType = params.gameType;
@@ -47,5 +51,5 @@ export async function getUserBets(params: GetUserBetsParams) {
 
   const total = await bets.countDocuments(filter, { limit: COUNT_CAP });
 
-  return { bets: results, ...capCount(total), limit, skip };
+  return { resolvedUser: resolved, bets: results, ...capCount(total), limit, skip };
 }

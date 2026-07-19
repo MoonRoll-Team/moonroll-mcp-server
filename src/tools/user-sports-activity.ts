@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import { getConnection, COUNT_CAP } from '../db.js';
+import { resolveUserId } from './find-user.js';
 
 interface GetUserSportsActivityParams {
   userId: string;
@@ -35,48 +35,6 @@ function dateRange(startDate?: string, endDate?: string) {
   if (startDate) createdAt.$gte = new Date(startDate);
   if (endDate) createdAt.$lte = new Date(endDate);
   return createdAt;
-}
-
-export async function resolveSportsUser(db: any, query: string) {
-  const users = db.collection('users');
-  let user = null;
-
-  if (mongoose.Types.ObjectId.isValid(query) && query.length === 24) {
-    user = await users.findOne(
-      { _id: new mongoose.Types.ObjectId(query) },
-      { projection: { _id: 1, publicId: 1, name: 1, email: 1 } }
-    );
-  }
-
-  if (!user) {
-    user = await users.findOne(
-      { publicId: query },
-      { projection: { _id: 1, publicId: 1, name: 1, email: 1 } }
-    );
-  }
-
-  if (!user) {
-    user = await users.findOne(
-      { email: query },
-      { projection: { _id: 1, publicId: 1, name: 1, email: 1 } }
-    );
-  }
-
-  if (!user) {
-    user = await users.findOne(
-      { name: query },
-      { projection: { _id: 1, publicId: 1, name: 1, email: 1 } }
-    );
-  }
-
-  if (!user?.publicId) return null;
-
-  return {
-    _id: String(user._id),
-    publicId: user.publicId,
-    name: user.name || '',
-    email: user.email || '',
-  };
 }
 
 async function readBetconstruct(
@@ -157,22 +115,27 @@ async function readBetconstruct(
 }
 
 export async function getUserSportsActivity(params: GetUserSportsActivityParams) {
-  const db = (await getConnection()).db!;
-  const user = await resolveSportsUser(db, params.userId);
-
-  if (!user) {
+  const resolved = await resolveUserId(params.userId.trim());
+  if (!resolved) {
     return { found: false, message: `No user found matching "${params.userId}"` };
   }
+  if (!resolved.publicId) {
+    return {
+      found: false,
+      message: `User "${resolved.userName}" (${resolved.userId}) has no publicId — no sports betting activity possible`,
+    };
+  }
 
+  const db = (await getConnection()).db!;
   const includes = parseIncludes(params.include);
   const result: Record<string, any> = {
     found: true,
-    user,
+    user: { _id: resolved.userId, publicId: resolved.publicId, name: resolved.userName },
     provider: 'betconstruct',
     include: [...includes],
   };
 
-  result.betconstruct = await readBetconstruct(db, params, user.publicId, includes);
+  result.betconstruct = await readBetconstruct(db, params, resolved.publicId, includes);
 
   return result;
 }
