@@ -1,20 +1,58 @@
 import { getConnection } from '../db.js';
+import { SENSITIVE_PROJECTION } from '../redact.js';
 
 // Collections that must never be queried (contain admin credentials)
 const BLOCKED_COLLECTIONS = new Set(['adminusers']);
 
 // Sensitive fields to strip from user-related collections
 const SENSITIVE_PROJECTIONS: Record<string, Record<string, 0>> = {
-  users: {
-    password: 0,
-    nonce: 0,
-    'cryptoAddresses.pkSol': 0,
-    intercomHash: 0,
-  },
+  users: SENSITIVE_PROJECTION,
 };
 
-// Aggregate stages that could write data
-const BLOCKED_AGGREGATE_STAGES = new Set(['$out', '$merge']);
+// Operators forbidden anywhere in a filter or pipeline: writes ($out/$merge)
+// and server-side JavaScript execution ($where/$function/$accumulator).
+const FORBIDDEN_OPERATORS = new Set([
+  '$out',
+  '$merge',
+  '$where',
+  '$function',
+  '$accumulator',
+]);
+
+// Recursively scan a filter or pipeline for forbidden operators and for
+// references to blocked collections ($lookup/$unionWith/$graphLookup can pull
+// in another collection regardless of the top-level collection being queried).
+function scanForbidden(node: any): string | null {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const err = scanForbidden(item);
+      if (err) return err;
+    }
+    return null;
+  }
+  if (node === null || typeof node !== 'object') return null;
+
+  for (const [key, value] of Object.entries(node)) {
+    if (FORBIDDEN_OPERATORS.has(key)) {
+      return `Operator "${key}" is not allowed`;
+    }
+    if (key === '$lookup' || key === '$graphLookup') {
+      const from = (value as any)?.from;
+      if (typeof from === 'string' && BLOCKED_COLLECTIONS.has(from.toLowerCase())) {
+        return `${key} into "${from}" is not allowed`;
+      }
+    }
+    if (key === '$unionWith') {
+      const coll = typeof value === 'string' ? value : (value as any)?.coll;
+      if (typeof coll === 'string' && BLOCKED_COLLECTIONS.has(coll.toLowerCase())) {
+        return `$unionWith "${coll}" is not allowed`;
+      }
+    }
+    const err = scanForbidden(value);
+    if (err) return err;
+  }
+  return null;
+}
 
 const ALLOWED_METHODS = ['find', 'findOne', 'countDocuments', 'aggregate'] as const;
 type AllowedMethod = (typeof ALLOWED_METHODS)[number];
@@ -54,19 +92,15 @@ export async function runQuery(params: RunQueryParams) {
     return { error: 'Invalid JSON in filter parameter' };
   }
 
-  // For aggregate, validate pipeline stages
-  if (method === 'aggregate') {
-    if (!Array.isArray(filter)) {
-      return { error: 'Aggregate filter must be a JSON array (pipeline)' };
-    }
-    for (const stage of filter) {
-      const stageKeys = Object.keys(stage);
-      for (const key of stageKeys) {
-        if (BLOCKED_AGGREGATE_STAGES.has(key)) {
-          return { error: `Aggregate stage "${key}" is not allowed (write operation)` };
-        }
-      }
-    }
+  // For aggregate, the filter must be a pipeline array
+  if (method === 'aggregate' && !Array.isArray(filter)) {
+    return { error: 'Aggregate filter must be a JSON array (pipeline)' };
+  }
+
+  // Reject forbidden operators and blocked-collection references at any depth
+  const forbidden = scanForbidden(filter);
+  if (forbidden) {
+    return { error: forbidden };
   }
 
   const db = (await getConnection()).db!;

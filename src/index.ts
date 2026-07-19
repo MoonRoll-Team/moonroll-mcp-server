@@ -7,6 +7,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getConnection } from './db.js';
+import { redactDeep } from './redact.js';
 import { findUser } from './tools/find-user.js';
 import { getUserBets } from './tools/user-bets.js';
 import { getUserLedger } from './tools/user-ledger.js';
@@ -41,7 +42,7 @@ const server = new McpServer({
 function toolHandler(fn: (params: any) => Promise<any>) {
   return async (params: any) => {
     try {
-      const result = await fn(params);
+      const result = redactDeep(await fn(params));
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
       };
@@ -283,6 +284,19 @@ async function main() {
     const app = express();
     app.use(express.json());
     const port = parseInt(process.env.MCP_PORT || '3456', 10);
+    const host = process.env.MCP_HOST || '127.0.0.1';
+
+    // Optional bearer-token auth — required if the server is exposed beyond localhost
+    const authToken = process.env.MCP_AUTH_TOKEN;
+    if (authToken) {
+      app.use('/mcp', (req, res, next) => {
+        if (req.headers.authorization !== `Bearer ${authToken}`) {
+          res.status(401).json({ error: 'Unauthorized' });
+          return;
+        }
+        next();
+      });
+    }
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -302,8 +316,8 @@ async function main() {
 
     await server.connect(transport);
 
-    app.listen(port, () => {
-      console.log(`[moonroll-mcp] HTTP server on http://localhost:${port}/mcp`);
+    app.listen(port, host, () => {
+      console.log(`[moonroll-mcp] HTTP server on http://${host}:${port}/mcp (auth: ${authToken ? 'bearer token' : 'none'})`);
       console.log(`[moonroll-mcp] target=${targetEnv} name=${serverName}, 14 tools registered`);
     });
   } else {

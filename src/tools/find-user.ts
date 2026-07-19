@@ -1,12 +1,8 @@
 import mongoose from 'mongoose';
 import { getConnection } from '../db.js';
+import { SENSITIVE_PROJECTION } from '../redact.js';
 
-const SENSITIVE_FIELDS: Record<string, 0> = {
-  password: 0,
-  nonce: 0,
-  'cryptoAddresses.pkSol': 0,
-  intercomHash: 0,
-};
+const SENSITIVE_FIELDS = SENSITIVE_PROJECTION;
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
