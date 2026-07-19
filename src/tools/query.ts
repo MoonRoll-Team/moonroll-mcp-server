@@ -1,5 +1,12 @@
-import { getConnection } from '../db.js';
+import { EJSON } from 'bson';
+import { getConnection, COUNT_CAP, capCount } from '../db.js';
 import { SENSITIVE_PROJECTION } from '../redact.js';
+
+// Parse Extended JSON so {"$oid": "..."} and {"$date": "..."} work in filters.
+// Relaxed mode keeps plain numbers as JS numbers.
+function parseEJSON(text: string): any {
+  return EJSON.parse(text, { relaxed: true });
+}
 
 // Collections that must never be queried (contain admin credentials)
 const BLOCKED_COLLECTIONS = new Set(['adminusers']);
@@ -87,7 +94,7 @@ export async function runQuery(params: RunQueryParams) {
   // Parse filter/pipeline
   let filter: any;
   try {
-    filter = JSON.parse(params.filter);
+    filter = parseEJSON(params.filter);
   } catch {
     return { error: 'Invalid JSON in filter parameter' };
   }
@@ -116,7 +123,14 @@ export async function runQuery(params: RunQueryParams) {
   const collection = db.collection(collectionName);
 
   // Apply sensitive field projection
-  let projection: any = params.projection ? JSON.parse(params.projection) : {};
+  let projection: any = {};
+  if (params.projection) {
+    try {
+      projection = parseEJSON(params.projection);
+    } catch {
+      return { error: 'Invalid JSON in projection parameter' };
+    }
+  }
   if (SENSITIVE_PROJECTIONS[collectionName]) {
     projection = { ...projection, ...SENSITIVE_PROJECTIONS[collectionName] };
   }
@@ -127,7 +141,7 @@ export async function runQuery(params: RunQueryParams) {
   let sort: any = undefined;
   if (params.sort) {
     try {
-      sort = JSON.parse(params.sort);
+      sort = parseEJSON(params.sort);
     } catch {
       return { error: 'Invalid JSON in sort parameter' };
     }
@@ -138,12 +152,12 @@ export async function runQuery(params: RunQueryParams) {
       const cursor = collection.find(filter, { projection });
       if (sort) cursor.sort(sort);
       const results = await cursor.skip(skip).limit(limit).toArray();
-      const total = await collection.countDocuments(filter);
-      return { results, total, limit, skip };
+      const total = await collection.countDocuments(filter, { limit: COUNT_CAP });
+      return { results, ...capCount(total), limit, skip };
     }
 
     case 'findOne': {
-      const result = await collection.findOne(filter, { projection });
+      const result = await collection.findOne(filter, { projection, sort });
       return { result };
     }
 

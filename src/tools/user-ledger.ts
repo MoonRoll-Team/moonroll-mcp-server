@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { getConnection } from '../db.js';
+import { getConnection, COUNT_CAP, capCount } from '../db.js';
 
 interface GetUserLedgerParams {
   userId: string;
@@ -38,7 +38,7 @@ export async function getUserLedger(params: GetUserLedgerParams) {
     .limit(limit)
     .toArray();
 
-  const total = await ledgers.countDocuments(filter);
+  const total = await ledgers.countDocuments(filter, { limit: COUNT_CAP });
 
-  return { ledger: results, total, limit, skip };
+  return { ledger: results, ...capCount(total), limit, skip };
 }

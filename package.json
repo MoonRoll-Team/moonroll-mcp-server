@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.750.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "bson": "^6.10.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.0",
     "mongoose": "^8.18.2"

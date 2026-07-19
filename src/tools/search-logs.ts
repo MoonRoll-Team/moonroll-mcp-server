@@ -85,7 +85,22 @@ export async function searchLogs(params: SearchLogsParams) {
     return { error: 'Invalid startTime or endTime format' };
   }
 
-  // Build filter pattern
+  // Filter by log levels
+  const allowedLevels = (params.logLevels || 'error,warn,info')
+    .split(',')
+    .map((l) => l.trim().toLowerCase())
+    .filter(Boolean);
+
+  // Build filter pattern — levels are filtered server-side so we don't page
+  // through (and pay for) log events that would be discarded client-side.
+  // Events without a level field still match ($.level NOT EXISTS) and are
+  // kept by the client-side net below as level "unknown".
+  const levelClause = allowedLevels
+    .flatMap((l) => [l, l.toUpperCase()])
+    .map((l) => `$.level = "${l}"`)
+    .concat('$.level NOT EXISTS')
+    .join(' || ');
+
   let filterPattern: string;
   let resolvedUser: { userId: string; userName: string } | null = null;
 
@@ -94,9 +109,9 @@ export async function searchLogs(params: SearchLogsParams) {
     if (!resolvedUser) {
       return { error: `No user found matching "${params.searchValue}"` };
     }
-    filterPattern = `{ $.userId = "${resolvedUser.userId}" }`;
+    filterPattern = `{ $.userId = "${resolvedUser.userId}" && (${levelClause}) }`;
   } else {
-    filterPattern = `{ $.requestId = "${params.searchValue.trim()}" }`;
+    filterPattern = `{ $.requestId = "${params.searchValue.trim()}" && (${levelClause}) }`;
   }
 
   const limit = Math.min(params.limit || 100, 500);
@@ -131,11 +146,7 @@ export async function searchLogs(params: SearchLogsParams) {
     .slice(0, limit)
     .map((event) => parseLogMessage(event.message || '', event.timestamp || 0));
 
-  // Filter by log levels
-  const allowedLevels = (params.logLevels || 'error,warn,info')
-    .split(',')
-    .map((l) => l.trim().toLowerCase());
-
+  // Client-side net: keeps behavior identical for non-JSON events (level "unknown")
   const filteredLogs = logs.filter(
     (log) => allowedLevels.includes(log.level) || log.level === 'unknown'
   );

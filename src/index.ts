@@ -131,13 +131,13 @@ server.tool(
 // --- Tool: run_query ---
 server.tool(
   'run_query',
-  'Run a read-only MongoDB query on any collection. Supports find, findOne, countDocuments, and aggregate. The "adminusers" collection is blocked. Sensitive fields are automatically stripped from user queries.',
+  'Run a read-only MongoDB query on any collection. Supports find, findOne, countDocuments, and aggregate. Filters accept MongoDB Extended JSON: {"$oid":"..."} for ObjectIds and {"$date":"2026-07-01T00:00:00Z"} for dates — e.g. {"userId":{"$oid":"64..."},"createdAt":{"$gte":{"$date":"2026-07-01T00:00:00Z"}}}. The "adminusers" collection is blocked. Sensitive fields are automatically stripped from results.',
   {
     collection: z.string().describe('Collection name (e.g. "users", "bets", "ledgers", "tradings")'),
     method: z.enum(['find', 'findOne', 'countDocuments', 'aggregate']).describe('Query method'),
-    filter: z.string().describe('JSON string — MongoDB filter object for find/findOne/countDocuments, or pipeline array for aggregate'),
+    filter: z.string().describe('JSON string — MongoDB filter object for find/findOne/countDocuments, or pipeline array for aggregate. Supports Extended JSON: {"$oid":"..."}, {"$date":"..."}'),
     projection: z.string().optional().describe('JSON string — field projection (e.g. {"name":1,"email":1})'),
-    sort: z.string().optional().describe('JSON string — sort specification (e.g. {"createdAt":-1})'),
+    sort: z.string().optional().describe('JSON string — sort specification (e.g. {"createdAt":-1}); also applied to findOne'),
     limit: z.number().optional().describe('Max results (default 20, max 100)'),
     skip: z.number().optional().describe('Pagination offset (default 0)'),
   },

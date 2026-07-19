@@ -1,5 +1,14 @@
 import mongoose from 'mongoose';
 
+// Cap for countDocuments calls: an uncapped count on bets/ledgers scans
+// millions of docs and can take seconds. Past the cap the true total is
+// unknown, so results carry totalCapped instead of a misleading number.
+export const COUNT_CAP = 1000;
+
+export function capCount(total: number): { total: number; totalCapped?: true } {
+  return total >= COUNT_CAP ? { total, totalCapped: true } : { total };
+}
+
 let connection: mongoose.Connection | null = null;
 let connectingPromise: Promise<mongoose.Connection> | null = null;
 

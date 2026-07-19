@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { getConnection } from '../db.js';
+import { getConnection, COUNT_CAP } from '../db.js';
 
 interface GetUserSportsActivityParams {
   userId: string;
@@ -105,7 +105,7 @@ async function readBetconstruct(
           .limit(limit)
           .toArray()
       : Promise.resolve([]),
-    transactionCollection.countDocuments(transactionFilter),
+    transactionCollection.countDocuments(transactionFilter, { limit: COUNT_CAP }),
   ]);
 
   const relatedByBetId: Record<string, any[]> = {};
@@ -147,6 +147,7 @@ async function readBetconstruct(
 
   return {
     totalTransactions,
+    ...(totalTransactions >= COUNT_CAP ? { totalTransactionsCapped: true } : {}),
     limit,
     skip,
     summary,

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { getConnection } from '../db.js';
+import { getConnection, COUNT_CAP, capCount } from '../db.js';
 
 interface GetUserBetsParams {
   userId: string;
@@ -45,7 +45,7 @@ export async function getUserBets(params: GetUserBetsParams) {
     .limit(limit)
     .toArray();
 
-  const total = await bets.countDocuments(filter);
+  const total = await bets.countDocuments(filter, { limit: COUNT_CAP });
 
-  return { bets: results, total, limit, skip };
+  return { bets: results, ...capCount(total), limit, skip };
 }
