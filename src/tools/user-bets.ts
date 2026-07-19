@@ -42,14 +42,10 @@ export async function getUserBets(params: GetUserBetsParams) {
   const limit = Math.min(params.limit || 50, 200);
   const skip = params.skip || 0;
 
-  const results = await bets
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .toArray();
-
-  const total = await bets.countDocuments(filter, { limit: COUNT_CAP });
+  const [results, total] = await Promise.all([
+    bets.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+    bets.countDocuments(filter, { limit: COUNT_CAP }),
+  ]);
 
   return { resolvedUser: resolved, bets: results, ...capCount(total), limit, skip };
 }

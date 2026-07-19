@@ -35,14 +35,10 @@ export async function getUserLedger(params: GetUserLedgerParams) {
   const limit = Math.min(params.limit || 50, 200);
   const skip = params.skip || 0;
 
-  const results = await ledgers
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .toArray();
-
-  const total = await ledgers.countDocuments(filter, { limit: COUNT_CAP });
+  const [results, total] = await Promise.all([
+    ledgers.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+    ledgers.countDocuments(filter, { limit: COUNT_CAP }),
+  ]);
 
   return { resolvedUser: resolved, ledger: results, ...capCount(total), limit, skip };
 }

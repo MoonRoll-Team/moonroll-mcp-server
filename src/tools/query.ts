@@ -8,6 +8,22 @@ function parseEJSON(text: string): any {
   return EJSON.parse(text, { relaxed: true });
 }
 
+// Collection-name cache (60s TTL) — avoids a listCollections roundtrip on
+// every run_query call. A collection created mid-TTL appears within a minute.
+const COLLECTIONS_TTL_MS = 60_000;
+let collectionsCache: { names: Set<string>; at: number } | null = null;
+
+async function collectionExists(db: any, name: string): Promise<boolean> {
+  if (!collectionsCache || Date.now() - collectionsCache.at > COLLECTIONS_TTL_MS) {
+    const list = await db.listCollections().toArray();
+    collectionsCache = {
+      names: new Set(list.map((c: any) => c.name.toLowerCase())),
+      at: Date.now(),
+    };
+  }
+  return collectionsCache.names.has(name);
+}
+
 // Collections that must never be queried (contain admin credentials)
 const BLOCKED_COLLECTIONS = new Set(['adminusers']);
 
@@ -112,11 +128,8 @@ export async function runQuery(params: RunQueryParams) {
 
   const db = (await getConnection()).db!;
 
-  // Check collection exists
-  const collections = await db
-    .listCollections({ name: collectionName })
-    .toArray();
-  if (collections.length === 0) {
+  // Check collection exists (cached — saves a listCollections roundtrip per call)
+  if (!(await collectionExists(db, collectionName))) {
     return { error: `Collection "${collectionName}" not found` };
   }
 
@@ -131,8 +144,19 @@ export async function runQuery(params: RunQueryParams) {
       return { error: 'Invalid JSON in projection parameter' };
     }
   }
-  if (SENSITIVE_PROJECTIONS[collectionName]) {
-    projection = { ...projection, ...SENSITIVE_PROJECTIONS[collectionName] };
+  const sensitive = SENSITIVE_PROJECTIONS[collectionName];
+  if (sensitive) {
+    const isInclusion = Object.entries(projection).some(
+      ([k, v]) => k !== '_id' && v
+    );
+    if (isInclusion) {
+      // Mixing exclusions into an inclusion projection is a MongoDB error —
+      // instead drop any attempt to include a sensitive field (and output
+      // redaction catches anything nested that slips through).
+      for (const key of Object.keys(sensitive)) delete projection[key];
+    } else {
+      projection = { ...projection, ...sensitive };
+    }
   }
 
   const limit = Math.min(params.limit || 20, 100);

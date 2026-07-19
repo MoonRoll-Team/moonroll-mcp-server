@@ -25,28 +25,17 @@ export async function getUserWithdrawals(params: GetUserWithdrawalsParams) {
     if (params.endDate) dateFilter.$lte = new Date(params.endDate);
   }
 
-  // Pending withdrawals
   const pendingFilter: Record<string, any> = { requestedUser: userOid };
   if (params.status) pendingFilter.status = params.status;
   if (Object.keys(dateFilter).length) pendingFilter.createdAt = dateFilter;
 
-  const pending = await db
-    .collection('pendingwithdraws')
-    .find(pendingFilter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .toArray();
-
-  // Failed withdrawals
   const failedFilter: Record<string, any> = { requestedUser: userOid };
   if (Object.keys(dateFilter).length) failedFilter.createdAt = dateFilter;
 
-  const failed = await db
-    .collection('failedwithdrawals')
-    .find(failedFilter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .toArray();
+  const [pending, failed] = await Promise.all([
+    db.collection('pendingwithdraws').find(pendingFilter).sort({ createdAt: -1 }).limit(limit).toArray(),
+    db.collection('failedwithdrawals').find(failedFilter).sort({ createdAt: -1 }).limit(limit).toArray(),
+  ]);
 
   return { resolvedUser: resolved, pending, failed, pendingCount: pending.length, failedCount: failed.length };
 }

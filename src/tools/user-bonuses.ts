@@ -30,18 +30,10 @@ export async function getUserBonuses(params: GetUserBonusesParams) {
     if (params.endDate) bonusFilter.createdAt.$lte = new Date(params.endDate);
   }
 
-  const bonuses = await db
-    .collection('bonuses')
-    .find(bonusFilter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .toArray();
-
-  // Current eligibility
-  const eligibilities = await db
-    .collection('userbonuseligibilities')
-    .find({ userId: userOid })
-    .toArray();
+  const [bonuses, eligibilities] = await Promise.all([
+    db.collection('bonuses').find(bonusFilter).sort({ createdAt: -1 }).limit(limit).toArray(),
+    db.collection('userbonuseligibilities').find({ userId: userOid }).toArray(),
+  ]);
 
   return { resolvedUser: resolved, bonuses, eligibilities, bonusCount: bonuses.length };
 }

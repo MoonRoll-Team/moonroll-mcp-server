@@ -14,14 +14,21 @@ interface ParsedLogEntry {
   metadata: string | null;
 }
 
+// Module singleton — a fresh client per call would redo the TLS handshake
+// and lose keep-alive connections on every search.
+let client: CloudWatchLogsClient | null = null;
+
 function getClient() {
-  return new CloudWatchLogsClient({
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.AWS_KEY_ID || '',
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    },
-  });
+  if (!client) {
+    client = new CloudWatchLogsClient({
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      },
+    });
+  }
+  return client;
 }
 
 function parseLogMessage(rawMessage: string, timestamp: number): ParsedLogEntry {

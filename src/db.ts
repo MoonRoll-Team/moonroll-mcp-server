@@ -30,7 +30,9 @@ export async function getConnection(): Promise<mongoose.Connection> {
   connectingPromise = (async () => {
     try {
       connection = mongoose.createConnection(url, {
-        maxPoolSize: 2,
+        // Tools batch parallel queries (find + count, multi-collection
+        // Promise.all) — a pool of 2 serializes them again.
+        maxPoolSize: 10,
         serverSelectionTimeoutMS: 10000,
       });
       await connection.asPromise();

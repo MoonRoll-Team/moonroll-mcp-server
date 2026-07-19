@@ -311,6 +311,11 @@ server.tool(
 
 // --- Start server ---
 async function main() {
+  // Warm up the MongoDB connection so the first tool call doesn't pay the
+  // 1-3s Atlas connection setup. Errors are swallowed: the next tool call
+  // retries via getConnection().
+  void getConnection().catch(() => {});
+
   const useHttp = process.env.MCP_PORT || process.argv.includes('--http');
 
   if (useHttp) {

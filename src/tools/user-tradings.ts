@@ -37,14 +37,10 @@ export async function getUserTradings(params: GetUserTradingsParams) {
   const limit = Math.min(params.limit || 50, 200);
   const skip = params.skip || 0;
 
-  const results = await tradings
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .toArray();
-
-  const total = await tradings.countDocuments(filter, { limit: COUNT_CAP });
+  const [results, total] = await Promise.all([
+    tradings.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+    tradings.countDocuments(filter, { limit: COUNT_CAP }),
+  ]);
 
   return { resolvedUser: resolved, tradings: results, ...capCount(total), limit, skip };
 }

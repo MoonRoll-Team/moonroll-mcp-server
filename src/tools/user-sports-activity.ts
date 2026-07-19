@@ -54,7 +54,9 @@ async function readBetconstruct(
   if (createdAt) transactionFilter.createdAt = createdAt;
 
   const transactionCollection = db.collection('bctransactions');
-  const [transactions, totalTransactions] = await Promise.all([
+  // The summary aggregation only depends on the filter — run it alongside
+  // the page fetch and the count instead of after them.
+  const [transactions, totalTransactions, summaryRows] = await Promise.all([
     includes.has('transactions')
       ? transactionCollection
           .find(transactionFilter)
@@ -64,6 +66,23 @@ async function readBetconstruct(
           .toArray()
       : Promise.resolve([]),
     transactionCollection.countDocuments(transactionFilter, { limit: COUNT_CAP }),
+    includes.has('summary')
+      ? transactionCollection
+          .aggregate([
+            { $match: transactionFilter },
+            {
+              $group: {
+                _id: { operation: '$operation', isMrcBet: '$isMrcBet' },
+                count: { $sum: 1 },
+                amountUSD: { $sum: '$amountUSD' },
+                deltaUSD: { $sum: { $ifNull: ['$deltaUSD', 0] } },
+                amountInUserCurrency: { $sum: '$amountInUserCurrency' },
+              },
+            },
+            { $sort: { '_id.operation': 1, '_id.isMrcBet': 1 } },
+          ])
+          .toArray()
+      : Promise.resolve([]),
   ]);
 
   const relatedByBetId: Record<string, any[]> = {};
@@ -80,28 +99,7 @@ async function readBetconstruct(
     }
   }
 
-  let summary = null;
-  if (includes.has('summary')) {
-    const summaryRows = await transactionCollection
-      .aggregate([
-        { $match: transactionFilter },
-        {
-          $group: {
-            _id: { operation: '$operation', isMrcBet: '$isMrcBet' },
-            count: { $sum: 1 },
-            amountUSD: { $sum: '$amountUSD' },
-            deltaUSD: { $sum: { $ifNull: ['$deltaUSD', 0] } },
-            amountInUserCurrency: { $sum: '$amountInUserCurrency' },
-          },
-        },
-        { $sort: { '_id.operation': 1, '_id.isMrcBet': 1 } },
-      ])
-      .toArray();
-
-    summary = {
-      byOperation: summaryRows,
-    };
-  }
+  const summary = includes.has('summary') ? { byOperation: summaryRows } : null;
 
   return {
     totalTransactions,
