@@ -46,8 +46,9 @@ function toolHandler(fn: (params: any) => Promise<any>) {
   return async (params: any) => {
     try {
       const result = redactDeep(await fn(params));
+      // Compact JSON — indentation costs tokens on every response
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       };
     } catch (error: any) {
       return {
@@ -82,6 +83,7 @@ server.tool(
     minProfit: z.number().optional().describe('Minimum profit threshold (useful for finding big wins)'),
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
     skip: z.number().optional().describe('Pagination offset (default 0)'),
+    full: z.boolean().optional().describe('Include per-game state details and provable-fairness seeds (default false: compact view)'),
   },
   toolHandler(getUserBets)
 );

@@ -12,6 +12,26 @@ interface GetUserBetsParams {
   minProfit?: number;
   limit?: number;
   skip?: number;
+  full?: boolean;
+}
+
+// Compact view: drop per-game state blobs (blackjackDetails, minesDetails, ...)
+// and provable-fairness seeds — they dominate response size. full: true keeps them.
+const VERBOSE_BET_FIELDS = new Set([
+  'serverSeed',
+  'serverSeedHash',
+  'clientSeed',
+  'seedUniquenessEnforced',
+  '__v',
+]);
+
+function compactBet(doc: Record<string, any>) {
+  const out: Record<string, any> = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (key.endsWith('Details') || VERBOSE_BET_FIELDS.has(key)) continue;
+    out[key] = value;
+  }
+  return out;
 }
 
 export async function getUserBets(params: GetUserBetsParams) {
@@ -47,5 +67,14 @@ export async function getUserBets(params: GetUserBetsParams) {
     bets.countDocuments(filter, { limit: COUNT_CAP }),
   ]);
 
-  return { resolvedUser: resolved, bets: results, ...capCount(total), limit, skip };
+  const view = params.full ? results : results.map(compactBet);
+
+  return {
+    resolvedUser: resolved,
+    bets: view,
+    ...(params.full ? {} : { view: 'compact — game-state details and seeds omitted; pass full: true for complete documents' }),
+    ...capCount(total),
+    limit,
+    skip,
+  };
 }

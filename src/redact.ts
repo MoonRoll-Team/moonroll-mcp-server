@@ -4,10 +4,17 @@
 // (top-level, embedded in $lookup results, nested subdocuments, arrays).
 export const SENSITIVE_KEYS = new Set([
   'password',
-  'nonce',
   'pkSol',
   'intercomHash',
 ]);
+
+// 'nonce' is only sensitive as a string (users.nonce is the wallet-auth
+// challenge). Integer nonces (bets.nonce, blockchain tx nonces) are the
+// provable-fairness / tx counters and must survive redaction.
+function isSensitive(key: string, value: unknown): boolean {
+  if (SENSITIVE_KEYS.has(key)) return true;
+  return key === 'nonce' && typeof value === 'string';
+}
 
 // Projection applied to direct queries on the users collection (cheaper than
 // shipping the data and redacting it afterwards; redactDeep remains the net).
@@ -34,7 +41,7 @@ export function redactDeep<T>(value: T): T {
   if (isPlainObject(value)) {
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
-      if (SENSITIVE_KEYS.has(key)) continue;
+      if (isSensitive(key, val)) continue;
       out[key] = redactDeep(val);
     }
     return out as unknown as T;
