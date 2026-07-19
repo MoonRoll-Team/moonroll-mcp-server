@@ -59,18 +59,34 @@ function toolHandler(fn: (params: any) => Promise<any>) {
   };
 }
 
+// Every tool on this server is read-only; annotate so clients know.
+let toolCount = 0;
+function registerReadOnlyTool(
+  name: string,
+  description: string,
+  inputSchema: Record<string, z.ZodTypeAny>,
+  fn: (params: any) => Promise<any>
+) {
+  server.registerTool(
+    name,
+    { description, inputSchema, annotations: { readOnlyHint: true } },
+    toolHandler(fn)
+  );
+  toolCount++;
+}
+
 // --- Tool: find_user ---
-server.tool(
+registerReadOnlyTool(
   'find_user',
   'Look up a Moonroll user by any identifier: ObjectId, publicId, name, email, wallet address, or Discord ID. Returns user profile and balance.',
   {
     query: z.string().describe('The search value — ObjectId, publicId, username, email, wallet address, or Discord ID'),
   },
-  toolHandler(({ query }) => findUser(query))
+  ({ query }) => findUser(query)
 );
 
 // --- Tool: get_user_bets ---
-server.tool(
+registerReadOnlyTool(
   'get_user_bets',
   'Retrieve a user\'s betting history with optional filters. Useful for investigating suspicious wins or unusual patterns.',
   {
@@ -85,11 +101,11 @@ server.tool(
     skip: z.number().optional().describe('Pagination offset (default 0)'),
     full: z.boolean().optional().describe('Include per-game state details and provable-fairness seeds (default false: compact view)'),
   },
-  toolHandler(getUserBets)
+  getUserBets
 );
 
 // --- Tool: get_user_ledger ---
-server.tool(
+registerReadOnlyTool(
   'get_user_ledger',
   'Retrieve all balance-changing operations for a user (bets, deposits, withdrawals, bonuses). Shows balanceAfter for each entry — the most useful tool for tracing balance anomalies and exploits.',
   {
@@ -101,11 +117,11 @@ server.tool(
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
     skip: z.number().optional().describe('Pagination offset (default 0)'),
   },
-  toolHandler(getUserLedger)
+  getUserLedger
 );
 
 // --- Tool: get_user_sessions ---
-server.tool(
+registerReadOnlyTool(
   'get_user_sessions',
   'Retrieve login history or IP history for a user. Useful for multi-accounting detection and security investigations.',
   {
@@ -115,11 +131,11 @@ server.tool(
     endDate: z.string().optional().describe('End date (ISO format)'),
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
   },
-  toolHandler(getUserSessions)
+  getUserSessions
 );
 
 // --- Tool: search_logs ---
-server.tool(
+registerReadOnlyTool(
   'search_logs',
   'Search CloudWatch logs by user identifier or trace/request ID. Logs include level, message, userId, requestId, and metadata.',
   {
@@ -130,11 +146,11 @@ server.tool(
     logLevels: z.string().optional().describe('Comma-separated log levels to include (default: "error,warn,info")'),
     limit: z.number().optional().describe('Max number of log events (default 100, max 500)'),
   },
-  toolHandler(searchLogs)
+  searchLogs
 );
 
 // --- Tool: run_query ---
-server.tool(
+registerReadOnlyTool(
   'run_query',
   'Run a read-only MongoDB query on any collection. Supports find, findOne, countDocuments, and aggregate. Filters accept MongoDB Extended JSON: {"$oid":"..."} for ObjectIds and {"$date":"2026-07-01T00:00:00Z"} for dates — e.g. {"userId":{"$oid":"64..."},"createdAt":{"$gte":{"$date":"2026-07-01T00:00:00Z"}}}. The "adminusers" collection is blocked. Sensitive fields are automatically stripped from results.',
   {
@@ -146,11 +162,11 @@ server.tool(
     limit: z.number().optional().describe('Max results (default 20, max 100)'),
     skip: z.number().optional().describe('Pagination offset (default 0)'),
   },
-  toolHandler(runQuery)
+  runQuery
 );
 
 // --- Tool: get_user_tradings ---
-server.tool(
+registerReadOnlyTool(
   'get_user_tradings',
   'Retrieve deposit/withdrawal trading records for a user. Shows blockchain transactions with status, amounts, and signatures.',
   {
@@ -163,11 +179,11 @@ server.tool(
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
     skip: z.number().optional().describe('Pagination offset (default 0)'),
   },
-  toolHandler(getUserTradings)
+  getUserTradings
 );
 
 // --- Tool: get_user_withdrawals ---
-server.tool(
+registerReadOnlyTool(
   'get_user_withdrawals',
   'Get pending and failed withdrawals for a user. Returns both pending requests and failed withdrawal records with failure reasons.',
   {
@@ -177,11 +193,11 @@ server.tool(
     endDate: z.string().optional().describe('End date (ISO format)'),
     limit: z.number().optional().describe('Number of results per category (default 50, max 200)'),
   },
-  toolHandler(getUserWithdrawals)
+  getUserWithdrawals
 );
 
 // --- Tool: get_user_bonuses ---
-server.tool(
+registerReadOnlyTool(
   'get_user_bonuses',
   'Get bonus history and current eligibility for a user. Shows claimed bonuses and active bonus templates the user can use.',
   {
@@ -192,11 +208,11 @@ server.tool(
     endDate: z.string().optional().describe('End date (ISO format)'),
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
   },
-  toolHandler(getUserBonuses)
+  getUserBonuses
 );
 
 // --- Tool: get_user_sports_bets ---
-server.tool(
+registerReadOnlyTool(
   'get_user_sports_bets',
   'Get current BetConstruct sports betting transactions for a user. Resolves ObjectId/publicId/name/email to the sports publicId and returns related transactions by betId.',
   {
@@ -207,11 +223,11 @@ server.tool(
     limit: z.number().optional().describe('Number of transactions to return (default 50, max 200)'),
     skip: z.number().optional().describe('Pagination offset for transactions (default 0)'),
   },
-  toolHandler(getUserSportsBets)
+  getUserSportsBets
 );
 
 // --- Tool: get_user_sports_activity ---
-server.tool(
+registerReadOnlyTool(
   'get_user_sports_activity',
   'Read sports betting activity for a user from the current BetConstruct records. Returns transactions, related records grouped by betId, counts, and summaries.',
   {
@@ -223,11 +239,11 @@ server.tool(
     limit: z.number().optional().describe('Number of transactions to return (default 50, max 200)'),
     skip: z.number().optional().describe('Pagination offset for transactions (default 0)'),
   },
-  toolHandler(getUserSportsActivity)
+  getUserSportsActivity
 );
 
 // --- Tool: get_user_daily_stats ---
-server.tool(
+registerReadOnlyTool(
   'get_user_daily_stats',
   'Get daily P&L breakdown for a user. Shows wagered, won, income, deposits, and withdrawals per day per currency per game type.',
   {
@@ -236,78 +252,68 @@ server.tool(
     endDate: z.string().optional().describe('End date (ISO format)'),
     limit: z.number().optional().describe('Number of days (default 30, max 90)'),
   },
-  toolHandler(getUserDailyStats)
+  getUserDailyStats
 );
 
 // --- Tool: get_user_referrals ---
-server.tool(
+registerReadOnlyTool(
   'get_user_referrals',
   'Get referral info for a user — referral code, revenue generated, referred users, referral deposits, and claim history.',
   {
     userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
   },
-  toolHandler(getUserReferrals)
+  getUserReferrals
 );
 
 // --- Tool: get_data_dictionary ---
-server.tool(
+registerReadOnlyTool(
   'get_data_dictionary',
   'Moonroll data dictionary: field semantics, state codes, and known pitfalls — gems are booked 1:1 to USD and inflate mixed totals ~8x, betState 4/3/2 = won/lost/void, per-collection user keys (userId vs requestedUser vs userPublicId), BO stats exclusion rules, withdrawal limit rules, run_query Extended JSON tips. Consult this before writing custom queries or interpreting financial figures.',
   {
     topic: z.string().optional().describe('Optional filter: amounts, gems, ngr, sports, user_keys, bo_stats, withdraw, ledger, run_query'),
   },
-  toolHandler(getDataDictionary)
+  getDataDictionary
 );
 
 // --- Tool: check_withdraw_eligibility ---
-server.tool(
+registerReadOnlyTool(
   'check_withdraw_eligibility',
   'Explain a user\'s withdrawal limits: daily limit = max(2x deposits last 24h, rank maxDailyWithdraw), current usage (successful withdrawals + pending requests), remaining amount, and every gating rule (KYC above $500, $5 minimum, wager requirement, account flags). Answers "why can\'t this user withdraw?".',
   {
     userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
   },
-  toolHandler(checkWithdrawEligibility)
+  checkWithdrawEligibility
 );
 
 // --- Tool: get_platform_stats ---
-server.tool(
+registerReadOnlyTool(
   'get_platform_stats',
   'Monthly platform KPIs computed exactly like the back office: deposits, withdrawals, net cash flow (cash NGR), unique depositors, first-time depositors, registrations. Applies the BO exclusions (bots/statsexclusions, excluded blockchain, MRC migration, gem swaps) — use this instead of ad-hoc aggregates for any financial question. Amounts in USD.',
   {
     startMonth: z.string().optional().describe('First month, YYYY-MM (default: 11 months before endMonth)'),
     endMonth: z.string().optional().describe('Last month, YYYY-MM (default: current month)'),
   },
-  toolHandler(getPlatformStats)
+  getPlatformStats
 );
 
 // --- Tool: list_collections ---
-server.tool(
+registerReadOnlyTool(
   'list_collections',
   'List all available MongoDB collections with document counts. Useful for discovering what data is available.',
   {},
   async () => {
-    try {
-      const db = (await getConnection()).db!;
-      const collections = await db.listCollections().toArray();
-      const results = await Promise.all(
-        collections
-          .filter((c) => c.name !== 'adminusers')
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map(async (c) => {
-            const count = await db.collection(c.name).estimatedDocumentCount();
-            return { name: c.name, count };
-          })
-      );
-      return {
-        content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
-      };
-    } catch (error: any) {
-      return {
-        content: [{ type: 'text' as const, text: `Error: ${error.message}` }],
-        isError: true,
-      };
-    }
+    const db = (await getConnection()).db!;
+    const collections = await db.listCollections().toArray();
+    return Promise.all(
+      collections
+        .filter((c) => c.name !== 'adminusers')
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(async (c) => {
+          const count = await db.collection(c.name).estimatedDocumentCount();
+          return { name: c.name, count };
+        })
+    );
   }
 );
 
@@ -359,13 +365,13 @@ async function main() {
 
     app.listen(port, host, () => {
       console.log(`[moonroll-mcp] HTTP server on http://${host}:${port}/mcp (auth: ${authToken ? 'bearer token' : 'none'})`);
-      console.log(`[moonroll-mcp] target=${targetEnv} name=${serverName}, 14 tools registered`);
+      console.log(`[moonroll-mcp] target=${targetEnv} name=${serverName}, ${toolCount} tools registered`);
     });
   } else {
     // stdio mode — for local Claude Code via .mcp.json
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error(`[moonroll-mcp] stdio server started (target=${targetEnv} name=${serverName}), 14 tools registered`);
+    console.error(`[moonroll-mcp] stdio server started (target=${targetEnv} name=${serverName}), ${toolCount} tools registered`);
   }
 }
 
