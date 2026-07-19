@@ -21,6 +21,9 @@ import { getUserSportsBets } from './tools/user-sports-bets.js';
 import { getUserSportsActivity } from './tools/user-sports-activity.js';
 import { getUserDailyStats } from './tools/user-daily-stats.js';
 import { getUserReferrals } from './tools/user-referrals.js';
+import { getDataDictionary } from './tools/data-dictionary.js';
+import { checkWithdrawEligibility } from './tools/withdraw-eligibility.js';
+import { getPlatformStats } from './tools/platform-stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -243,6 +246,37 @@ server.tool(
     limit: z.number().optional().describe('Number of results (default 50, max 200)'),
   },
   toolHandler(getUserReferrals)
+);
+
+// --- Tool: get_data_dictionary ---
+server.tool(
+  'get_data_dictionary',
+  'Moonroll data dictionary: field semantics, state codes, and known pitfalls — gems are booked 1:1 to USD and inflate mixed totals ~8x, betState 4/3/2 = won/lost/void, per-collection user keys (userId vs requestedUser vs userPublicId), BO stats exclusion rules, withdrawal limit rules, run_query Extended JSON tips. Consult this before writing custom queries or interpreting financial figures.',
+  {
+    topic: z.string().optional().describe('Optional filter: amounts, gems, ngr, sports, user_keys, bo_stats, withdraw, ledger, run_query'),
+  },
+  toolHandler(getDataDictionary)
+);
+
+// --- Tool: check_withdraw_eligibility ---
+server.tool(
+  'check_withdraw_eligibility',
+  'Explain a user\'s withdrawal limits: daily limit = max(2x deposits last 24h, rank maxDailyWithdraw), current usage (successful withdrawals + pending requests), remaining amount, and every gating rule (KYC above $500, $5 minimum, wager requirement, account flags). Answers "why can\'t this user withdraw?".',
+  {
+    userId: z.string().describe('User identifier: ObjectId, publicId, username, email, wallet address, or Discord ID'),
+  },
+  toolHandler(checkWithdrawEligibility)
+);
+
+// --- Tool: get_platform_stats ---
+server.tool(
+  'get_platform_stats',
+  'Monthly platform KPIs computed exactly like the back office: deposits, withdrawals, net cash flow (cash NGR), unique depositors, first-time depositors, registrations. Applies the BO exclusions (bots/statsexclusions, excluded blockchain, MRC migration, gem swaps) — use this instead of ad-hoc aggregates for any financial question. Amounts in USD.',
+  {
+    startMonth: z.string().optional().describe('First month, YYYY-MM (default: 11 months before endMonth)'),
+    endMonth: z.string().optional().describe('Last month, YYYY-MM (default: current month)'),
+  },
+  toolHandler(getPlatformStats)
 );
 
 // --- Tool: list_collections ---
